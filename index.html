@@ -5,14 +5,14 @@ layout: default
 
 {% for n in numeri %}
   {% assign lista = site.articoli | where: "numero", n.numero | sort: "path" %}
-  {% if lista.size > 0 %}
   <section>
     <h2>Numero {{ n.numero }} - {{ n.data }}</h2>
+    {% if lista.size > 0 %}
     <ul>
       {% for a in lista %}
       <li><a href="{{ a.url }}">{{ a.title }}</a></li>
       {% endfor %}
     </ul>
+    {% endif %}
   </section>
-  {% endif %}
 {% endfor %}
