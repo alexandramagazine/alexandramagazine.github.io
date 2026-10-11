@@ -13,3 +13,4 @@ defaults:
       type: "articoli"
     values:
       layout: articolo
+
