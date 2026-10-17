@@ -13,3 +13,5 @@ Il tavolo di conversazione si è arrovellato per un’ora nel cercare soluzioni 
 E allora dove sta l’inganno del capitalismo? Ritengo che l’inganno sia subdolo e nascosto come accade in tutte le migliori trappole sociali.
 
 Il capitalismo infatti è imperniato sulla figa e fino a quando non troveremo modelli affettivi alternativi non uscire da questo incubo.
+
+
