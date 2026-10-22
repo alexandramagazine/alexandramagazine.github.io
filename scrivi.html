@@ -219,16 +219,20 @@ title: Scrivi
     sostituisci(i, j, nuove, i, i + nuove.length);
   }
 
+  // [testo](indirizzo): niente finestre, seleziona la parte che resta da scrivere
   function link() {
     var i = testo.selectionStart, j = testo.selectionEnd;
     var sel = testo.value.slice(i, j);
-    var url = prompt("Indirizzo del link:", /^https?:\/\//.test(sel) ? sel : "https://");
-    if (!url) return testo.focus();
-    var etichetta = sel && sel !== url ? sel : "testo del link";
-    var s = "[" + etichetta + "](" + url + ")";
-    // Se non c'era testo selezionato, seleziona l'etichetta da riscrivere
-    if (sel && sel !== url) sostituisci(i, j, s, i + s.length, i + s.length);
-    else sostituisci(i, j, s, i + 1, i + 1 + etichetta.length);
+    var url = /^https?:\/\/\S+$/.test(sel);
+    var etichetta = sel && !url ? sel : "testo del link";
+    var indirizzo = url ? sel : "https://";
+    var s = "[" + etichetta + "](" + indirizzo + ")";
+    if (sel && !url) {
+      var k = i + etichetta.length + 3; // dentro le parentesi tonde
+      sostituisci(i, j, s, k, k + indirizzo.length);
+    } else {
+      sostituisci(i, j, s, i + 1, i + 1 + etichetta.length);
+    }
   }
 
   var azioni = {
