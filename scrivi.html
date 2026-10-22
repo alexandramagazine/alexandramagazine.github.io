@@ -1,0 +1,239 @@
+---
+layout: default
+title: Scrivi
+---
+<section class="editor">
+  <h2>Scrivi un post</h2>
+
+  <label>Titolo
+    <input id="titolo" type="text" maxlength="200" autocomplete="off">
+  </label>
+  <label>Firma
+    <input id="autore" type="text" maxlength="100" placeholder="anonimo">
+  </label>
+
+  <div class="schede">
+    <button type="button" id="scheda-testo" class="attiva">Testo</button>
+    <button type="button" id="scheda-anteprima">Anteprima</button>
+    <label class="bottone" title="Inserisci immagine">
+      + Immagine
+      <input id="file-immagine" type="file" accept="image/*" multiple hidden>
+    </label>
+  </div>
+  <textarea id="testo" placeholder="Scrivi in markdown: **grassetto**, *corsivo*, # titoletto, [link](https://...)"></textarea>
+  <div id="anteprima" class="anteprima" hidden></div>
+  <p class="nota" id="stato-bozza"></p>
+
+  <label>Password
+    <input id="password" type="password" autocomplete="current-password">
+  </label>
+
+  <div class="azioni">
+    <button type="button" id="pubblica" class="primario">Pubblica</button>
+    <button type="button" id="scarta">Scarta bozza</button>
+  </div>
+  <p id="messaggio" class="messaggio" role="status"></p>
+</section>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/4.3.0/marked.min.js"></script>
+<script>
+(function () {
+  var WORKER = {{ site.worker_url | jsonify }};
+  var CHIAVE_BOZZA = "alexandra-bozza";
+  var CHIAVE_PASSWORD = "alexandra-password";
+  var LATO_MAX = 1600;
+
+  var $ = function (id) { return document.getElementById(id); };
+  var titolo = $("titolo"), autore = $("autore"), testo = $("testo"), password = $("password");
+  var immagini = {}; // nome → dataURL
+
+  // ---------- Bozza salvata nel browser ----------
+
+  function leggi(chiave) {
+    try { return localStorage.getItem(chiave); } catch (e) { return null; }
+  }
+  function scrivi(chiave, valore) {
+    try { localStorage.setItem(chiave, valore); return true; } catch (e) { return false; }
+  }
+
+  function salvaBozza() {
+    var bozza = { titolo: titolo.value, autore: autore.value, testo: testo.value, immagini: immagini };
+    var ok = scrivi(CHIAVE_BOZZA, JSON.stringify(bozza));
+    if (!ok) {
+      // Troppe immagini per lo spazio del browser: salviamo almeno il testo
+      bozza.immagini = {};
+      ok = scrivi(CHIAVE_BOZZA, JSON.stringify(bozza));
+      $("stato-bozza").textContent = ok
+        ? "Bozza salvata (senza immagini: troppo grandi per il salvataggio automatico)"
+        : "Impossibile salvare la bozza in questo browser";
+      return;
+    }
+    $("stato-bozza").textContent = "Bozza salvata alle " + new Date().toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
+  }
+
+  var timer;
+  function salvaTraPoco() {
+    clearTimeout(timer);
+    timer = setTimeout(salvaBozza, 800);
+  }
+
+  try {
+    var bozza = JSON.parse(leggi(CHIAVE_BOZZA) || "null");
+    if (bozza) {
+      titolo.value = bozza.titolo || "";
+      autore.value = bozza.autore || "";
+      testo.value = bozza.testo || "";
+      immagini = bozza.immagini || {};
+      $("stato-bozza").textContent = "Bozza recuperata";
+    }
+  } catch (e) {}
+  password.value = leggi(CHIAVE_PASSWORD) || "";
+
+  [titolo, autore, testo].forEach(function (el) { el.addEventListener("input", salvaTraPoco); });
+
+  // ---------- Anteprima ----------
+
+  function mostra(anteprima) {
+    $("scheda-testo").classList.toggle("attiva", !anteprima);
+    $("scheda-anteprima").classList.toggle("attiva", anteprima);
+    testo.hidden = anteprima;
+    $("anteprima").hidden = !anteprima;
+    if (anteprima) {
+      var md = testo.value.replace(/\]\((immagine-\d+\.\w+)\)/g, function (m, nome) {
+        return "](" + (immagini[nome] || nome) + ")";
+      });
+      $("anteprima").innerHTML = "<h1>" + escapeHtml(titolo.value) + "</h1>" + marked.parse(md);
+    }
+  }
+  $("scheda-testo").onclick = function () { mostra(false); };
+  $("scheda-anteprima").onclick = function () { mostra(true); };
+
+  function escapeHtml(s) {
+    var d = document.createElement("div");
+    d.textContent = s;
+    return d.innerHTML;
+  }
+
+  // ---------- Immagini ----------
+
+  function prossimoNome(estensione) {
+    var n = 1;
+    while (immagini["immagine-" + n + ".jpg"] || immagini["immagine-" + n + ".gif"]) n++;
+    return "immagine-" + n + "." + estensione;
+  }
+
+  function leggiFile(file) {
+    return new Promise(function (ok, ko) {
+      var r = new FileReader();
+      r.onload = function () { ok(r.result); };
+      r.onerror = ko;
+      r.readAsDataURL(file);
+    });
+  }
+
+  // Ridimensiona e converte in JPEG, così il repo non si riempie di foto da 10MB
+  function riduci(dataUrl) {
+    return new Promise(function (ok, ko) {
+      var img = new Image();
+      img.onload = function () {
+        var scala = Math.min(1, LATO_MAX / Math.max(img.width, img.height));
+        var c = document.createElement("canvas");
+        c.width = Math.round(img.width * scala);
+        c.height = Math.round(img.height * scala);
+        var ctx = c.getContext("2d");
+        ctx.fillStyle = "#fff";
+        ctx.fillRect(0, 0, c.width, c.height);
+        ctx.drawImage(img, 0, 0, c.width, c.height);
+        ok(c.toDataURL("image/jpeg", 0.85));
+      };
+      img.onerror = function () { ko(new Error("Immagine non leggibile")); };
+      img.src = dataUrl;
+    });
+  }
+
+  function inserisci(s) {
+    var i = testo.selectionStart, j = testo.selectionEnd;
+    testo.value = testo.value.slice(0, i) + s + testo.value.slice(j);
+    testo.selectionStart = testo.selectionEnd = i + s.length;
+  }
+
+  $("file-immagine").onchange = async function (e) {
+    for (var file of e.target.files) {
+      try {
+        var dataUrl = await leggiFile(file);
+        var nome;
+        if (file.type === "image/gif" && file.size < 2.5 * 1024 * 1024) {
+          nome = prossimoNome("gif"); // le GIF restano animate
+        } else {
+          dataUrl = await riduci(dataUrl);
+          nome = prossimoNome("jpg");
+        }
+        immagini[nome] = dataUrl;
+        mostra(false);
+        inserisci("\n\n![](" + nome + ")\n\n");
+      } catch (err) {
+        alert("Non riesco a caricare " + file.name);
+      }
+    }
+    e.target.value = "";
+    salvaBozza();
+  };
+
+  // ---------- Pubblicazione ----------
+
+  function messaggio(testoHtml, errore) {
+    $("messaggio").innerHTML = testoHtml;
+    $("messaggio").classList.toggle("errore", !!errore);
+  }
+
+  $("pubblica").onclick = async function () {
+    if (!titolo.value.trim()) return messaggio("Manca il titolo", true);
+    if (!testo.value.trim()) return messaggio("Il testo è vuoto", true);
+    if (!password.value) return messaggio("Serve la password", true);
+
+    var usate = Object.keys(immagini).filter(function (nome) {
+      return testo.value.indexOf("](" + nome + ")") !== -1;
+    });
+
+    this.disabled = true;
+    messaggio("Pubblicazione in corso…");
+    try {
+      var res = await fetch(WORKER + "/post", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          password: password.value,
+          titolo: titolo.value,
+          autore: autore.value,
+          testo: testo.value,
+          immagini: usate.map(function (nome) {
+            return { nome: nome, base64: immagini[nome].split(",")[1] };
+          }),
+        }),
+      });
+      var dati = await res.json();
+      if (!res.ok) throw new Error(dati.errore || "Errore");
+
+      scrivi(CHIAVE_PASSWORD, password.value);
+      try { localStorage.removeItem(CHIAVE_BOZZA); } catch (e) {}
+      titolo.value = autore.value = testo.value = "";
+      immagini = {};
+      $("stato-bozza").textContent = "";
+      messaggio('Pubblicato! Sarà visibile tra circa un minuto qui: <a href="' + dati.url + '">' + dati.url + "</a>");
+    } catch (err) {
+      messaggio("Non pubblicato: " + escapeHtml(err.message) + ". La bozza è ancora salvata.", true);
+    } finally {
+      this.disabled = false;
+    }
+  };
+
+  $("scarta").onclick = function () {
+    if (!confirm("Cancellare la bozza?")) return;
+    try { localStorage.removeItem(CHIAVE_BOZZA); } catch (e) {}
+    titolo.value = autore.value = testo.value = "";
+    immagini = {};
+    $("stato-bozza").textContent = "";
+    mostra(false);
+  };
+})();
+</script>

@@ -1,0 +1,26 @@
+---
+layout: default
+---
+<article>
+  <p><a href="/blog.html">← Torna al blog</a></p>
+  <h1>{{ page.title | escape }}</h1>
+  <p class="autore">{{ page.autore | escape }} · {{ page.date | date: "%d/%m/%Y" }}</p>
+
+  {{ content }}
+</article>
+
+<section class="commenti">
+  <div id="disqus_thread"></div>
+  <script>
+    var disqus_config = function () {
+      this.page.url = "{{ page.url | absolute_url }}";
+      this.page.identifier = "{{ page.url }}";
+    };
+    (function() {
+      var d = document, s = d.createElement('script');
+      s.src = 'https://alexandra-magazine.disqus.com/embed.js';
+      s.setAttribute('data-timestamp', +new Date());
+      (d.head || d.body).appendChild(s);
+    })();
+  </script>
+</section>

@@ -2,10 +2,19 @@ title: ALEXANDRA MAGAZINE
 url: "https://alexandramagazine.github.io"
 lang: it
 
+# URL del Cloudflare Worker che pubblica i post (vedi worker/README.md)
+worker_url: "https://alexandra-publish.CAMBIAMI.workers.dev"
+
+exclude:
+  - worker
+
 collections:
   articoli:
     output: true
     permalink: /articoli/:name.html
+  blog:
+    output: true
+    permalink: /blog/:name.html
 
 defaults:
   - scope:
@@ -13,4 +22,8 @@ defaults:
       type: "articoli"
     values:
       layout: articolo
-      
+  - scope:
+      path: ""
+      type: "blog"
+    values:
+      layout: post

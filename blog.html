@@ -1,0 +1,20 @@
+---
+layout: default
+title: Blog
+---
+{% assign posts = site.blog | sort: "date" | reverse %}
+<section>
+  <h2>Blog</h2>
+  {% if posts.size > 0 %}
+  <ul class="lista-blog">
+    {% for p in posts %}
+    <li>
+      <a href="{{ p.url }}">{{ p.title | escape }}</a>
+      <span class="meta">{{ p.autore | escape }} · {{ p.date | date: "%d/%m/%Y" }}</span>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p>Ancora nessun post. <a href="/scrivi.html">Scrivi il primo!</a></p>
+  {% endif %}
+</section>

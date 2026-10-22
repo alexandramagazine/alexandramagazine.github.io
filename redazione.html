@@ -1,0 +1,93 @@
+---
+layout: default
+title: Redazione
+---
+{% assign posts = site.blog | sort: "date" | reverse %}
+{% assign gia_pubblicati = site.articoli | map: "blog" %}
+{% assign ultimo = site.data.numeri | map: "numero" | sort | last | plus: 0 %}
+<section class="editor">
+  <h2>Pubblica il numero {{ ultimo | plus: 1 }}</h2>
+  <p class="nota">Seleziona i post nell'ordine in cui devono apparire nel numero.</p>
+
+  {% if posts.size > 0 %}
+  <ul class="selezione">
+    {% for p in posts %}
+    <li>
+      <label>
+        <input type="checkbox" value="{{ p.relative_path }}">
+        <span class="ordine"></span>
+        <span>
+          {{ p.title | escape }}
+          <span class="meta">{{ p.autore | escape }} · {{ p.date | date: "%d/%m/%Y" }}{% if gia_pubblicati contains p.url %} · già in un numero{% endif %}</span>
+        </span>
+      </label>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p>Non ci sono ancora post nel blog.</p>
+  {% endif %}
+
+  <label>Password della redazione
+    <input id="password" type="password" autocomplete="off">
+  </label>
+  <div class="azioni">
+    <button type="button" id="pubblica" class="primario">Pubblica il numero</button>
+  </div>
+  <p id="messaggio" class="messaggio" role="status"></p>
+</section>
+
+<script>
+(function () {
+  var WORKER = {{ site.worker_url | jsonify }};
+  var scelti = [];
+  var caselle = document.querySelectorAll(".selezione input");
+
+  function aggiorna() {
+    caselle.forEach(function (c) {
+      var i = scelti.indexOf(c.value);
+      c.parentNode.querySelector(".ordine").textContent = i === -1 ? "" : i + 1;
+    });
+  }
+  caselle.forEach(function (c) {
+    c.onchange = function () {
+      if (c.checked) scelti.push(c.value);
+      else scelti.splice(scelti.indexOf(c.value), 1);
+      aggiorna();
+    };
+  });
+
+  function messaggio(testo, errore) {
+    var m = document.getElementById("messaggio");
+    m.textContent = testo;
+    m.classList.toggle("errore", !!errore);
+  }
+
+  document.getElementById("pubblica").onclick = async function () {
+    var password = document.getElementById("password").value;
+    if (scelti.length === 0) return messaggio("Seleziona almeno un post", true);
+    if (!password) return messaggio("Serve la password della redazione", true);
+    if (!confirm("Pubblicare un nuovo numero con " + scelti.length + " articoli?")) return;
+
+    this.disabled = true;
+    messaggio("Pubblicazione in corso…");
+    try {
+      var res = await fetch(WORKER + "/numero", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: password, post: scelti }),
+      });
+      var dati = await res.json();
+      if (!res.ok) throw new Error(dati.errore || "Errore");
+      messaggio("Numero " + dati.numero + " pubblicato! Sarà in homepage tra circa un minuto.");
+      scelti = [];
+      caselle.forEach(function (c) { c.checked = false; });
+      aggiorna();
+    } catch (err) {
+      messaggio("Non pubblicato: " + err.message, true);
+    } finally {
+      this.disabled = false;
+    }
+  };
+})();
+</script>

@@ -1,0 +1,8 @@
+{
+  "name": "alexandra-publish",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "deploy": "wrangler deploy"
+  }
+}

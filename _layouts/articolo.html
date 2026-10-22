@@ -9,18 +9,6 @@ layout: default
   {{ content }}
 </article>
 
-<section class="commenti">
-  <div id="disqus_thread"></div>
-  <script>
-    var disqus_config = function () {
-      this.page.url = "{{ page.url | absolute_url }}";
-      this.page.identifier = "{{ page.url | remove: '/articoli/' | remove: '.html' }}";
-    };
-    (function() {
-      var d = document, s = d.createElement('script');
-      s.src = 'https://alexandra-magazine.disqus.com/embed.js';
-      s.setAttribute('data-timestamp', +new Date());
-      (d.head || d.body).appendChild(s);
-    })();
-  </script>
-</section>
+{% if page.blog %}
+<p class="discussione"><a href="{{ page.blog }}#disqus_thread">Discutine nel blog →</a></p>
+{% endif %}
