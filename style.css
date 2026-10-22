@@ -231,8 +231,43 @@ article img {
   cursor: pointer;
 }
 
-.schede .bottone {
-  margin-left: auto;
+.strumenti {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.3rem;
+  border: 1px solid #cfccc5;
+  border-bottom: none;
+  border-radius: 4px 4px 0 0;
+  background: #f3f1ec;
+}
+
+.editor .strumenti button,
+.editor .strumenti .bottone {
+  min-width: 2.2rem;
+  padding: 0.25rem 0.55rem;
+  border-color: transparent;
+  background: transparent;
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+.editor .strumenti button:hover,
+.editor .strumenti .bottone:hover {
+  border-color: #cfccc5;
+  background: #fff;
+}
+
+.strumenti .separatore {
+  width: 1px;
+  height: 1.3rem;
+  margin: 0 0.2rem;
+  background: #cfccc5;
+}
+
+.editor .strumenti + textarea {
+  border-radius: 0 0 4px 4px;
 }
 
 .schede button.attiva {

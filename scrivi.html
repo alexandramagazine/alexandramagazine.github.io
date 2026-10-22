@@ -15,8 +15,20 @@ title: Scrivi
   <div class="schede">
     <button type="button" id="scheda-testo" class="attiva">Testo</button>
     <button type="button" id="scheda-anteprima">Anteprima</button>
+  </div>
+  <div class="strumenti" id="strumenti">
+    <button type="button" data-azione="grassetto" title="Grassetto (Ctrl+B)"><b>B</b></button>
+    <button type="button" data-azione="corsivo" title="Corsivo (Ctrl+I)"><i>I</i></button>
+    <button type="button" data-azione="barrato" title="Barrato"><s>S</s></button>
+    <span class="separatore"></span>
+    <button type="button" data-azione="titoletto" title="Titoletto">H</button>
+    <button type="button" data-azione="citazione" title="Citazione">❝</button>
+    <button type="button" data-azione="elenco" title="Elenco puntato">•&nbsp;Elenco</button>
+    <button type="button" data-azione="numerato" title="Elenco numerato">1.&nbsp;Elenco</button>
+    <span class="separatore"></span>
+    <button type="button" data-azione="link" title="Link (Ctrl+K)">Link</button>
     <label class="bottone" title="Inserisci immagine">
-      + Immagine
+      Immagine
       <input id="file-immagine" type="file" accept="image/*" multiple hidden>
     </label>
   </div>
@@ -97,6 +109,7 @@ title: Scrivi
     $("scheda-testo").classList.toggle("attiva", !anteprima);
     $("scheda-anteprima").classList.toggle("attiva", anteprima);
     testo.hidden = anteprima;
+    $("strumenti").hidden = anteprima;
     $("anteprima").hidden = !anteprima;
     if (anteprima) {
       var md = testo.value.replace(/\]\((immagine-\d+\.\w+)\)/g, function (m, nome) {
@@ -151,11 +164,98 @@ title: Scrivi
     });
   }
 
-  function inserisci(s) {
-    var i = testo.selectionStart, j = testo.selectionEnd;
-    testo.value = testo.value.slice(0, i) + s + testo.value.slice(j);
-    testo.selectionStart = testo.selectionEnd = i + s.length;
+  // Sostituisce il testo tra i e j e poi seleziona [selInizio, selFine].
+  // Passa da execCommand quando possibile, così Ctrl+Z annulla la modifica.
+  function sostituisci(i, j, s, selInizio, selFine) {
+    testo.focus();
+    testo.setSelectionRange(i, j);
+    var ok = false;
+    try { ok = document.execCommand("insertText", false, s); } catch (e) {}
+    if (!ok) testo.value = testo.value.slice(0, i) + s + testo.value.slice(j);
+    testo.setSelectionRange(selInizio, selFine);
+    salvaTraPoco();
   }
+
+  function inserisci(s) {
+    var i = testo.selectionStart;
+    sostituisci(i, testo.selectionEnd, s, i + s.length, i + s.length);
+  }
+
+  // **grassetto**, *corsivo*, ~~barrato~~: avvolge la selezione, o la "srotola" se è già avvolta
+  function avvolgi(segno) {
+    var v = testo.value, i = testo.selectionStart, j = testo.selectionEnd, n = segno.length;
+    var sel = v.slice(i, j);
+    if (v.slice(i - n, i) === segno && v.slice(j, j + n) === segno) {
+      return sostituisci(i - n, j + n, sel, i - n, j - n);
+    }
+    if (sel.length >= 2 * n && sel.slice(0, n) === segno && sel.slice(-n) === segno) {
+      return sostituisci(i, j, sel.slice(n, -n), i, j - 2 * n);
+    }
+    // Gli spazi ai bordi restano fuori: "**parola **" in markdown non funziona
+    var prima = sel.match(/^\s*/)[0], dopo = sel.match(/\s*$/)[0];
+    var nucleo = sel.slice(prima.length, sel.length - dopo.length);
+    var inizio = i + prima.length + n;
+    sostituisci(i, j, prima + segno + nucleo + segno + dopo, inizio, inizio + nucleo.length);
+  }
+
+  // # titoletto, > citazione, - elenco, 1. elenco: agisce su tutte le righe selezionate
+  function prefissa(tipo) {
+    var v = testo.value;
+    var i = v.lastIndexOf("\n", testo.selectionStart - 1) + 1;
+    var j = v.indexOf("\n", testo.selectionEnd);
+    if (j === -1) j = v.length;
+    var righe = v.slice(i, j).split("\n");
+    var schema = { titoletto: /^## /, citazione: /^> /, elenco: /^- /, numerato: /^\d+\. / }[tipo];
+    var tutte = righe.every(function (r) { return schema.test(r) || r.trim() === ""; });
+    var k = 0;
+    var nuove = righe.map(function (r) {
+      var pulita = r.replace(/^(#+ |> |- |\d+\. )/, "");
+      if (tutte || r.trim() === "") return tutte ? r.replace(schema, "") : r;
+      if (tipo === "titoletto") return "## " + pulita;
+      if (tipo === "citazione") return "> " + r;
+      if (tipo === "elenco") return "- " + pulita;
+      return ++k + ". " + pulita;
+    }).join("\n");
+    sostituisci(i, j, nuove, i, i + nuove.length);
+  }
+
+  function link() {
+    var i = testo.selectionStart, j = testo.selectionEnd;
+    var sel = testo.value.slice(i, j);
+    var url = prompt("Indirizzo del link:", /^https?:\/\//.test(sel) ? sel : "https://");
+    if (!url) return testo.focus();
+    var etichetta = sel && sel !== url ? sel : "testo del link";
+    var s = "[" + etichetta + "](" + url + ")";
+    // Se non c'era testo selezionato, seleziona l'etichetta da riscrivere
+    if (sel && sel !== url) sostituisci(i, j, s, i + s.length, i + s.length);
+    else sostituisci(i, j, s, i + 1, i + 1 + etichetta.length);
+  }
+
+  var azioni = {
+    grassetto: function () { avvolgi("**"); },
+    corsivo: function () { avvolgi("*"); },
+    barrato: function () { avvolgi("~~"); },
+    titoletto: function () { prefissa("titoletto"); },
+    citazione: function () { prefissa("citazione"); },
+    elenco: function () { prefissa("elenco"); },
+    numerato: function () { prefissa("numerato"); },
+    link: link,
+  };
+
+  $("strumenti").addEventListener("mousedown", function (e) {
+    // Evita che il clic tolga il focus (e la selezione) alla textarea
+    if (e.target.closest("button")) e.preventDefault();
+  });
+  $("strumenti").addEventListener("click", function (e) {
+    var b = e.target.closest("button[data-azione]");
+    if (b) azioni[b.dataset.azione]();
+  });
+
+  testo.addEventListener("keydown", function (e) {
+    if (!(e.ctrlKey || e.metaKey) || e.altKey || e.shiftKey) return;
+    var a = { b: "grassetto", i: "corsivo", k: "link" }[e.key.toLowerCase()];
+    if (a) { e.preventDefault(); azioni[a](); }
+  });
 
   $("file-immagine").onchange = async function (e) {
     for (var file of e.target.files) {
