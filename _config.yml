@@ -3,7 +3,7 @@ url: "https://alexandramagazine.github.io"
 lang: it
 
 # URL del Cloudflare Worker che pubblica i post (vedi worker/README.md)
-worker_url: "https://alexandra-publish.CAMBIAMI.workers.dev"
+worker_url: "https://alexandra-publish.riccardo-lamarca01.workers.dev"
 
 exclude:
   - worker
